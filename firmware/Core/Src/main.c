@@ -1,4 +1,3 @@
-/* USER CODE BEGIN Header */
 /**
   ******************************************************************************
   * @file           : main.c
@@ -18,10 +17,14 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include <stdio.h>
+#include "cmsis_gcc.h"
+#include "stm32l0xx_hal_rtc.h"
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -44,6 +47,8 @@ RTC_HandleTypeDef hrtc;
 
 UART_HandleTypeDef huart2;
 
+volatile uint8_t alarm_flag = 0;
+volatile uint8_t rtc_tick = 0;
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -59,6 +64,8 @@ void Set_Date (uint8_t year, uint8_t month, uint8_t date, uint8_t day);
 void Set_Alarm (uint8_t hr, uint8_t min, uint8_t sec, uint8_t date);
 void Get_TimeDate(char *time, char *date);
 void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef *hrtc); 
+void HAL_RTCEx_WakeUpTimerEventCallback(RTC_HandleTypeDef *hrtc);
+int _write(int file, char *ptr, int len);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -127,8 +134,20 @@ void Get_TimeDate(char *time, char *date)
 }
 void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef *hrtc) 
 { 
-  printf("alarm!!");
+  alarm_flag = 1;
 }
+
+void HAL_RTCEx_WakeUpTimerEventCallback(RTC_HandleTypeDef *hrtc)
+{
+  rtc_tick = 1;
+}
+
+int _write(int file, char *ptr, int len)
+{
+    HAL_UART_Transmit(&huart2, (uint8_t *)ptr, len, HAL_MAX_DELAY);
+    return len;
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -169,20 +188,32 @@ int main(void)
     Set_Date(24, 8, 11, 7);
   }
   Set_Alarm(15, 55, 0, 11);
-  char *timeData[10];
-  char *DateData[15];
+  char timeData[10];
+  char dateData[15];
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    Get_TimeDate(timeData, dateData);
-    printf("-- UPDATE --\n");
-    printf("%s\n", timeData);
-    printf("%s\n", DateData);
-    printf("-- END UPDATE --\n");
-    HAL_Delay(500);
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
+
+    if (rtc_tick) {
+      rtc_tick = 0;
+      printf("-- UPDATE --\n");
+      Get_TimeDate(timeData, dateData);
+      printf("%s\n", timeData);
+      printf("%s\n", dateData);
+      printf("-- END UPDATE --\n");
+
+    }
+    if (alarm_flag) {
+      alarm_flag = 0;
+      printf("alarm!!\n");
+    }
+    __WFI();
   }
   /* USER CODE END 3 */
 }
@@ -303,18 +334,25 @@ static void MX_RTC_Init(void)
 
   /** Enable the Alarm A
   */
-  sAlarm.AlarmTime.Hours = 0;
-  sAlarm.AlarmTime.Minutes = 0;
-  sAlarm.AlarmTime.Seconds = 0;
-  sAlarm.AlarmTime.SubSeconds = 0;
-  sAlarm.AlarmTime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
-  sAlarm.AlarmTime.StoreOperation = RTC_STOREOPERATION_RESET;
-  sAlarm.AlarmMask = RTC_ALARMMASK_NONE;
-  sAlarm.AlarmSubSecondMask = RTC_ALARMSUBSECONDMASK_ALL;
-  sAlarm.AlarmDateWeekDaySel = RTC_ALARMDATEWEEKDAYSEL_DATE;
-  sAlarm.AlarmDateWeekDay = 1;
-  sAlarm.Alarm = RTC_ALARM_A;
-  if (HAL_RTC_SetAlarm_IT(&hrtc, &sAlarm, RTC_FORMAT_BIN) != HAL_OK)
+  // sAlarm.AlarmTime.Hours = 0;
+  // sAlarm.AlarmTime.Minutes = 0;
+  // sAlarm.AlarmTime.Seconds = 0;
+  // sAlarm.AlarmTime.SubSeconds = 0;
+  // sAlarm.AlarmTime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
+  // sAlarm.AlarmTime.StoreOperation = RTC_STOREOPERATION_RESET;
+  // sAlarm.AlarmMask = RTC_ALARMMASK_NONE;
+  // sAlarm.AlarmSubSecondMask = RTC_ALARMSUBSECONDMASK_ALL;
+  // sAlarm.AlarmDateWeekDaySel = RTC_ALARMDATEWEEKDAYSEL_DATE;
+  // sAlarm.AlarmDateWeekDay = 1;
+  // sAlarm.Alarm = RTC_ALARM_A;
+  // if (HAL_RTC_SetAlarm_IT(&hrtc, &sAlarm, RTC_FORMAT_BIN) != HAL_OK)
+  // {
+  //   Error_Handler();
+  // }
+
+  /** Enable the WakeUp
+  */
+  if (HAL_RTCEx_SetWakeUpTimer_IT(&hrtc, 1, RTC_WAKEUPCLOCK_CK_SPRE_16BITS) != HAL_OK)
   {
     Error_Handler();
   }
