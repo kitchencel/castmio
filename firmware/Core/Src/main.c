@@ -28,13 +28,32 @@
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
-/* USER CODE BEGIN PTD */
 
+/* USER CODE BEGIN PTD */
+typedef enum {
+  MODE_CLOCK,
+  MODE_ALARM,
+  MODE_TIMER,
+  MODE_WATER,
+  MODE_COUNT // not really a "mode", it is used to increment modes easily
+} Mode;
+typedef enum {
+  AL_MODE_NONE,
+  AL_MODE_ALM,
+  AL_MODE_SIG,
+  AL_MODE_ALM_SIG,
+  AL_MODE_COUNT
+} Alarm_mode;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define EVT_RTC   (1u << 0)
+#define EVT_BTN_A (1u << 1) // LIGHT button on the watch
+#define EVT_BTN_B (1u << 2) // MODE  button on the watch
+#define EVT_BTN_C (1u << 3) // 24HR  button on the watch
+#define EVT_ALARM (1u << 4)
+#define EVT_TIMER (1u << 5)
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -44,11 +63,13 @@
 
 /* Private variables ---------------------------------------------------------*/
 RTC_HandleTypeDef hrtc;
-
 UART_HandleTypeDef huart2;
 
-volatile uint8_t alarm_flag = 0;
-volatile uint8_t rtc_tick = 0;
+volatile uint8_t events = 0;
+
+Mode mode = MODE_CLOCK;
+
+Alarm_mode alarm_mode = AL_MODE_NONE;
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -62,14 +83,22 @@ static void MX_USART2_UART_Init(void);
 void Set_Time (uint8_t hr, uint8_t min, uint8_t sec);
 void Set_Date (uint8_t year, uint8_t month, uint8_t date, uint8_t day);
 void Set_Alarm (uint8_t hr, uint8_t min, uint8_t sec, uint8_t date);
+
 void Get_TimeDate(char *time, char *date);
+
 void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef *hrtc); 
 void HAL_RTCEx_WakeUpTimerEventCallback(RTC_HandleTypeDef *hrtc);
+
+void Update_Display(mode mode);
+
 int _write(int file, char *ptr, int len);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+// Set functions
+
 void Set_Time (uint8_t hr, uint8_t min, uint8_t sec)
 {
 	RTC_TimeTypeDef sTime = {0};
@@ -83,6 +112,7 @@ void Set_Time (uint8_t hr, uint8_t min, uint8_t sec)
 		Error_Handler();
 	}
 }
+
 void Set_Date (uint8_t year, uint8_t month, uint8_t date, uint8_t day)  // monday = 1
 {
 	RTC_DateTypeDef sDate = {0};
@@ -97,6 +127,7 @@ void Set_Date (uint8_t year, uint8_t month, uint8_t date, uint8_t day)  // monda
 
 	HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR1, 0x2345);  // backup register
 }
+
 void Set_Alarm (uint8_t hr, uint8_t min, uint8_t sec, uint8_t date)
 {
 	RTC_AlarmTypeDef sAlarm = {0};
@@ -116,6 +147,8 @@ void Set_Alarm (uint8_t hr, uint8_t min, uint8_t sec, uint8_t date)
 		Error_Handler();
 	}
 }
+
+// Get funtions
 void Get_TimeDate(char *time, char *date)
 {
   RTC_TimeTypeDef gTime;
@@ -132,22 +165,45 @@ void Get_TimeDate(char *time, char *date)
   /* Display date Format: dd-mm-yyyy */
   sprintf((char*)date,"%02d-%02d-%2d",gDate.Date, gDate.Month, 2000 + gDate.Year);
 }
+
+// Interrupts
 void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef *hrtc) 
 { 
-  alarm_flag = 1;
+  events |= EVT_ALARM;
 }
 
 void HAL_RTCEx_WakeUpTimerEventCallback(RTC_HandleTypeDef *hrtc)
 {
-  rtc_tick = 1;
+  events |= EVT_RTC;
 }
 
+// Update display
+void Update_Display() {
+  // TODO: add the logic for every mode
+  if (mode == MODE_CLOCK) {
+    char timeData[10];
+    char dateData[15];
+
+    printf("-- UPDATE --\n");
+
+    Get_TimeDate(timeData, dateData);
+
+    printf("%s\n", timeData);
+    printf("%s\n", dateData);
+
+    printf("-- END UPDATE --\n");
+  }
+  else if (mode == MODE_ALARM) {;;}
+  else if (mode == MODE_TIMER) {;;}
+  else if (mode == MODE_WATER) {;;}
+}
+
+// _write
 int _write(int file, char *ptr, int len)
 {
     HAL_UART_Transmit(&huart2, (uint8_t *)ptr, len, HAL_MAX_DELAY);
     return len;
 }
-
 /* USER CODE END 0 */
 
 /**
@@ -187,9 +243,8 @@ int main(void)
     Set_Time(15, 54, 00);
     Set_Date(24, 8, 11, 7);
   }
+
   Set_Alarm(15, 55, 0, 11);
-  char timeData[10];
-  char dateData[15];
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -200,19 +255,11 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-    if (rtc_tick) {
-      rtc_tick = 0;
-      printf("-- UPDATE --\n");
-      Get_TimeDate(timeData, dateData);
-      printf("%s\n", timeData);
-      printf("%s\n", dateData);
-      printf("-- END UPDATE --\n");
-
-    }
-    if (alarm_flag) {
-      alarm_flag = 0;
+    if (events & EVT_ALARM) {
+      events &= ~EVT_ALARM;
       printf("alarm!!\n");
     }
+
     __WFI();
   }
   /* USER CODE END 3 */
