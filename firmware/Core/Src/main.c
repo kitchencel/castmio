@@ -18,23 +18,66 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "stm32l0xx_hal_rtc.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdbool.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-typedef enum {
+typedef enum
+{
   MODE_CLOCK,
   MODE_ALARM,
   MODE_TIMER,
   MODE_WATER,
+  MODE_ADJUST,
   MODE_COUNT // not really a "mode", it is used to increment modes easily
 } Mode;
+typedef enum
+{
+  ALM = RTC_ALARM_A,
+  SIG = RTC_ALARM_B
+} AlarmSelect;
+typedef enum
+{
+  AL_MODE_NONE,
+  AL_MODE_ALM,
+  AL_MODE_SIG,
+  AL_MODE_ALM_SIG
+} AlarmMode;
+typedef struct 
+{
+  uint8_t hour;
+  uint8_t min;
+} alarmTime;
+typedef struct
+{
+  uint16_t current_intake;
+  uint16_t goal;
+  bool hit_daily;
+} water_system;
+typedef enum
+{
+  CLK_ADJUST_SECONDS,
+  CLK_ADJUST_HOURS,
+  CLK_ADJUST_MINUTES,
+  CLK_ADJUST_MONTH,
+  CLK_ADJUST_DATE,
+  CLK_ADJUST_WEEKDAY,
+  CLK_ADJUST_COUNT
+} clock_adjust;
+typedef enum
+{
+  ALM_ADJUST_HOURS,
+  ALM_ADJUST_MINUTES,
+  ALM_ADJUST_COUNT,
+} alarm_adjust;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -45,9 +88,6 @@ typedef enum {
 #define EVT_BTN_C (1u << 3) // 24HR  button on the watch
 #define EVT_ALARM (1u << 4)
 #define EVT_TIMER (1u << 5)
-
-#define ALM_ENABLED (1u << 0)
-#define SIG_ENABLED (1u << 1)
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -59,11 +99,21 @@ typedef enum {
 RTC_HandleTypeDef hrtc;
 
 UART_HandleTypeDef huart2;
+
 volatile uint8_t events = 0;
 
-volatile uint8_t alarm_flags = 0;
-
 Mode mode = MODE_CLOCK;
+AlarmMode alarm_mode;
+
+alarmTime alarm;
+alarm.hour = 7;
+alarm.minute = 0;
+
+water_system water;
+water.current_intake = 0;
+water.goal = 2000;
+water.hit_daily = false;
+
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -122,20 +172,15 @@ void Set_Date (uint8_t year, uint8_t month, uint8_t date, uint8_t day)  // monda
 	HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR1, 0x2345);  // backup register
 }
 
-void Set_Alarm (uint8_t hr, uint8_t min, uint8_t sec, uint8_t date)
+void Set_Alarm (uint8_t hr, uint8_t min, AlarmSelect alm)
 {
 	RTC_AlarmTypeDef sAlarm = {0};
 	sAlarm.AlarmTime.Hours = hr;
 	sAlarm.AlarmTime.Minutes = min;
-	sAlarm.AlarmTime.Seconds = sec;
-	sAlarm.AlarmTime.SubSeconds = 0;
-	sAlarm.AlarmTime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
-	sAlarm.AlarmTime.StoreOperation = RTC_STOREOPERATION_RESET;
-	sAlarm.AlarmMask = RTC_ALARMMASK_NONE;
-	sAlarm.AlarmSubSecondMask = RTC_ALARMSUBSECONDMASK_ALL;
-	sAlarm.AlarmDateWeekDaySel = RTC_ALARMDATEWEEKDAYSEL_DATE;
-	sAlarm.AlarmDateWeekDay = date;
-	sAlarm.Alarm = RTC_ALARM_A;
+
+	sAlarm.AlarmMask = RTC_ALARMMASK_DATEWEEKDAY;
+	sAlarm.Alarm = alm;
+ 
 	if (HAL_RTC_SetAlarm_IT(&hrtc, &sAlarm, RTC_FORMAT_BIN) != HAL_OK)
 	{
 		Error_Handler();
@@ -173,23 +218,33 @@ void HAL_RTCEx_WakeUpTimerEventCallback(RTC_HandleTypeDef *hrtc)
 
 // Update display
 void Update_Display() {
-  // TODO: add the logic for every mode
   if (mode == MODE_CLOCK) {
     char timeData[10];
     char dateData[15];
-
-    printf("-- UPDATE --\n");
-
+    printf("-- UPDATE (CLK) --\n");
     Get_TimeDate(timeData, dateData);
-
     printf("%s\n", timeData);
     printf("%s\n", dateData);
-
     printf("-- END UPDATE --\n");
   }
-  else if (mode == MODE_ALARM) {}
-  else if (mode == MODE_TIMER) {;;}
-  else if (mode == MODE_WATER) {;;}
+  else if (mode == MODE_ALARM) {
+    printf("-- UPDATE (ALM) --\n")
+    printf("%02d:%02d\n", alarm.hour, alarm.min);
+    printf("ALM state: %d", alarm_mode);
+    printf("-- END UPDATE --\n");
+  }
+  else if (mode == MODE_TIMER) {
+    printf("-- UPDATE (TIM) --\n");
+    // TODO: implement the timer in CubeMX
+    printf("-- END UPDATE --\n");
+  }
+  else if (mode == MODE_WATER) {
+    printf("-- UPDATE (WAT) --\n")
+    printf("Current: %dml\n", water.current_intake)
+    printf("Goal: %dml\n", water.goal)
+    printf("Hit goal?: %d\n", water.hit_daily)
+    printf("-- END UPDATE --\n");
+  }
 }
 
 // _write
@@ -234,11 +289,10 @@ int main(void)
   /* USER CODE BEGIN 2 */
   if (HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1) != 0x2345)
   {
-    Set_Time(15, 54, 00);
-    Set_Date(24, 8, 11, 7);
+    Set_Time(00, 00, 00);
+    Set_Date(26, 6, 11, 4);
   }
 
-  Set_Alarm(15, 55, 0, 11);
   /* USER CODE END 2 */
 
   /* Infinite loop */
