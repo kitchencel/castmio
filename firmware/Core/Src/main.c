@@ -1,3 +1,4 @@
+/* USER CODE BEGIN Header */
 /**
   ******************************************************************************
   * @file           : main.c
@@ -17,8 +18,6 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "cmsis_gcc.h"
-#include "stm32l0xx_hal_rtc.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -28,7 +27,6 @@
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
-
 /* USER CODE BEGIN PTD */
 typedef enum {
   MODE_CLOCK,
@@ -59,15 +57,13 @@ typedef enum {
 
 /* Private variables ---------------------------------------------------------*/
 RTC_HandleTypeDef hrtc;
-UART_HandleTypeDef huart2;
 
+UART_HandleTypeDef huart2;
 volatile uint8_t events = 0;
 
 volatile uint8_t alarm_flags = 0;
 
 Mode mode = MODE_CLOCK;
-
-Alarm_mode alarm_mode = AL_MODE_NONE;
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -87,7 +83,7 @@ void Get_TimeDate(char *time, char *date);
 void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef *hrtc); 
 void HAL_RTCEx_WakeUpTimerEventCallback(RTC_HandleTypeDef *hrtc);
 
-void Update_Display(mode mode);
+void Update_Display();
 
 int _write(int file, char *ptr, int len);
 /* USER CODE END PFP */
@@ -379,8 +375,8 @@ static void MX_RTC_Init(void)
 
   /** Enable the Alarm A
   */
-  sAlarm.AlarmTime.Hours = 17;
-  sAlarm.AlarmTime.Minutes = 38;
+  sAlarm.AlarmTime.Hours = 0;
+  sAlarm.AlarmTime.Minutes = 0;
   sAlarm.AlarmTime.Seconds = 0;
   sAlarm.AlarmTime.SubSeconds = 0;
   sAlarm.AlarmTime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
@@ -390,10 +386,18 @@ static void MX_RTC_Init(void)
   sAlarm.AlarmDateWeekDaySel = RTC_ALARMDATEWEEKDAYSEL_DATE;
   sAlarm.AlarmDateWeekDay = 1;
   sAlarm.Alarm = RTC_ALARM_A;
-  // if (HAL_RTC_SetAlarm_IT(&hrtc, &sAlarm, RTC_FORMAT_BIN) != HAL_OK)
-  // {
-  //   Error_Handler();
-  // }
+  if (HAL_RTC_SetAlarm_IT(&hrtc, &sAlarm, RTC_FORMAT_BIN) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Enable the Alarm B
+  */
+  sAlarm.Alarm = RTC_ALARM_B;
+  if (HAL_RTC_SetAlarm_IT(&hrtc, &sAlarm, RTC_FORMAT_BIN) != HAL_OK)
+  {
+    Error_Handler();
+  }
 
   /** Enable the WakeUp
   */
