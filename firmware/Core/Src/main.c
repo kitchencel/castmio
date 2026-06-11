@@ -37,13 +37,6 @@ typedef enum {
   MODE_WATER,
   MODE_COUNT // not really a "mode", it is used to increment modes easily
 } Mode;
-typedef enum {
-  AL_MODE_NONE,
-  AL_MODE_ALM,
-  AL_MODE_SIG,
-  AL_MODE_ALM_SIG,
-  AL_MODE_COUNT
-} Alarm_mode;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -54,6 +47,9 @@ typedef enum {
 #define EVT_BTN_C (1u << 3) // 24HR  button on the watch
 #define EVT_ALARM (1u << 4)
 #define EVT_TIMER (1u << 5)
+
+#define ALM_ENABLED (1u << 0)
+#define SIG_ENABLED (1u << 1)
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -66,6 +62,8 @@ RTC_HandleTypeDef hrtc;
 UART_HandleTypeDef huart2;
 
 volatile uint8_t events = 0;
+
+volatile uint8_t alarm_flags = 0;
 
 Mode mode = MODE_CLOCK;
 
@@ -193,7 +191,7 @@ void Update_Display() {
 
     printf("-- END UPDATE --\n");
   }
-  else if (mode == MODE_ALARM) {;;}
+  else if (mode == MODE_ALARM) {}
   else if (mode == MODE_TIMER) {;;}
   else if (mode == MODE_WATER) {;;}
 }
@@ -381,17 +379,17 @@ static void MX_RTC_Init(void)
 
   /** Enable the Alarm A
   */
-  // sAlarm.AlarmTime.Hours = 0;
-  // sAlarm.AlarmTime.Minutes = 0;
-  // sAlarm.AlarmTime.Seconds = 0;
-  // sAlarm.AlarmTime.SubSeconds = 0;
-  // sAlarm.AlarmTime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
-  // sAlarm.AlarmTime.StoreOperation = RTC_STOREOPERATION_RESET;
-  // sAlarm.AlarmMask = RTC_ALARMMASK_NONE;
-  // sAlarm.AlarmSubSecondMask = RTC_ALARMSUBSECONDMASK_ALL;
-  // sAlarm.AlarmDateWeekDaySel = RTC_ALARMDATEWEEKDAYSEL_DATE;
-  // sAlarm.AlarmDateWeekDay = 1;
-  // sAlarm.Alarm = RTC_ALARM_A;
+  sAlarm.AlarmTime.Hours = 17;
+  sAlarm.AlarmTime.Minutes = 38;
+  sAlarm.AlarmTime.Seconds = 0;
+  sAlarm.AlarmTime.SubSeconds = 0;
+  sAlarm.AlarmTime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
+  sAlarm.AlarmTime.StoreOperation = RTC_STOREOPERATION_RESET;
+  sAlarm.AlarmMask = RTC_ALARMMASK_NONE;
+  sAlarm.AlarmSubSecondMask = RTC_ALARMSUBSECONDMASK_ALL;
+  sAlarm.AlarmDateWeekDaySel = RTC_ALARMDATEWEEKDAYSEL_DATE;
+  sAlarm.AlarmDateWeekDay = 1;
+  sAlarm.Alarm = RTC_ALARM_A;
   // if (HAL_RTC_SetAlarm_IT(&hrtc, &sAlarm, RTC_FORMAT_BIN) != HAL_OK)
   // {
   //   Error_Handler();
